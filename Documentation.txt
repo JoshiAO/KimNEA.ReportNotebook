@@ -1,0 +1,150 @@
+import pandas as pd
+import os
+export_path = r"C:\Users\User\Downloads\COB DATA\2025\10.October\10.21.25\Export"
+import_path = r"C:\Users\User\Downloads\COB DATA\2025\10.October\10.21.25\COB\Data"
+os.makedirs(export_path, exist_ok=True)
+
+#INVOICE ON Arrangement
+
+im_filename_inv = "DMS-Invoice-on.xlsx"
+full_im_path_inv = os.path.join(import_path, im_filename_inv)
+
+df1 = pd.read_excel(full_im_path_inv)
+
+dfc = df1[['Invoice Date', 'Sold To Customer Number',
+'Sold To Customer Name', 'Product Code', 'Product/Item Description',
+'Total Item amount with Tax and Discount', 'Invoice Item Type']]
+inv = dfc[dfc['Invoice Item Type'] != 'ITM_SALES_TAX']
+
+inv_f = inv
+inv_f.insert(6,'BO',0)
+inv_f.insert(7,'FG',0)
+inv_f['Total Item amount with Tax and Discount'] = inv_f['Total Item amount with Tax and Discount'].fillna(0)
+inv_f = inv_f.drop('Invoice Item Type', axis=1)
+
+
+ex_filename_inv = "Invoices.xlsx"
+full_path_inv = os.path.join(export_path, ex_filename_inv)
+
+export_inv = inv_f
+export_inv = export_inv.drop(['BO', 'FG'], axis=1)
+export_inv.to_excel(full_path_inv, index=False)
+
+##################################################
+
+#CUSTOMER RETURNS Arrangement
+
+im_filename_ret = "DMS-Customer Returns-on.xlsx"
+full_im_path_ret = os.path.join(import_path, im_filename_ret)
+
+df2 = pd.read_excel(full_im_path_ret)
+
+dfc2 = df2[['Customer Return Date', 'Sold To Customer Number', 'Sold To Customer Name', 
+'Product Code', 'Product Description', 'Facility Name', 'Estimated Product Return Amount']]
+dfc2['Estimated Product Return Amount'].fillna(0, inplace=True)
+dfc2.insert(5,'Total Item amount with Tax and Discount', 0)
+dfc2.insert(8,'with vat', 0)
+dfc2['with vat'] = dfc2['Estimated Product Return Amount'] * 1.12
+
+cust_ret = dfc2.pivot_table(index=['Customer Return Date', 'Sales Rep ID', 'Sales Rep Name', 'Sold To Customer Number', 'Sold To Customer Name', 
+'Product Code', 'Product Description', 'Total Item amount with Tax and Discount'], columns='Facility Name', values='with vat', aggfunc=sum)
+
+ret_f = cust_ret.reset_index()
+ret_f['BO'] = ret_f['BO'].fillna(0)
+ret_f['FG'] = ret_f['FG'].fillna(0)
+
+##################################################
+
+#COMBINE INVOICED AND RETURNS to NET INVOICED
+
+inv_f.rename(columns={
+'Invoice Date': 'DATE',
+'Sold To Customer Number': 'ACCOUNT CODE',
+'Sold To Customer Name': 'ACCOUNT NAME',
+'Product Code': 'SKU CODE',
+'Product/Item Description': 'SKU NAME',
+'Total Item amount with Tax and Discount': 'SERVED INVOICE',
+'BO': 'BAD RETURNS',
+'FG': 'GOOD RETURNS'
+}, inplace=True)
+
+ret_f.rename(columns={
+'Customer Return Date': 'DATE',
+'Sold To Customer Number': 'ACCOUNT CODE', 
+'Sold To Customer Name': 'ACCOUNT NAME',
+'Product Code': 'SKU CODE', 
+'Product Description': 'SKU NAME',
+'Total Item amount with Tax and Discount': 'SERVED INVOICE',
+'BO': 'BAD RETURNS',
+'FG': 'GOOD RETURNS'
+}, inplace=True)
+
+net_inv = pd.concat([inv_f, ret_f], axis=0)
+
+ex_filename_net_inv = "Net_Invoiced.xlsx"
+full_path_net_inv = os.path.join(export_path, ex_filename_net_inv)
+
+export_net_inv = net_inv
+export_net_inv.to_excel(full_path_net_inv, index=False)
+
+##################################################
+
+#SALES ORDERS
+
+im_filename_so = "DMS-Sales Order-on.xlsx"
+full_im_path_so = os.path.join(import_path, im_filename_so)
+
+df3 = pd.read_excel(full_im_path_so)
+
+dfc3 = df3[['Last Modified Date', 'Sold To Customer number', 'Sold To Customer Name',
+ 'Product Code', 'Product Description', 'Total Product Amount', 'SO status']]
+so_par = dfc3[dfc3['SO status'] == 'Invoiced']
+
+so_par['Total Product Amount'].fillna(0, inplace=True)
+so_par.insert(6,'with vat', 0)
+so_par['with vat'] = so_par['Total Product Amount'] * 1.12
+
+so_f = so_par
+so_f = so_f.drop(['Total Product Amount', 'SO status'], axis=1)
+
+ex_filename_so = "Sales_Orders.xlsx"
+full_path_so = os.path.join(export_path, ex_filename_so)
+
+export_so = so_f
+export_so.to_excel(full_path_so, index=False)
+
+##################################################
+
+#Price List M0
+
+im_filename_pl = "DMS-Price-on.xlsx"
+full_im_path_pl = os.path.join(import_path, im_filename_pl)
+
+pl_df = pd.read_excel(full_im_path_pl)
+
+pl_df2 = pl_df
+
+pl_df2 = pl_df2[['product_code', 'product_description', 'uom_description', 'selling_price', 'cust_class', 'cust_channel']]
+pl_df2.insert(4,'with vat', 0)
+pl_df2['with vat'] = pl_df2['selling_price'] * 1.12
+
+pl_df_m0 = pl_df2
+
+pl_df_m0 = pl_df_m0[pl_df_m0['cust_class'] != 'BEV Dealer']
+pl_df_m0 = pl_df_m0[pl_df_m0['cust_channel'] != 'VAN(EXTRUCK)']
+
+pl_df_m0_f = pl_df_m0.pivot_table(index=['product_code', 'product_description',], columns='uom_description', values='with vat', aggfunc=sum)
+
+pl_df_m0_f_1 = pl_df_m0_f.reset_index()
+
+pl_df_m0_f_1['Case'] = pl_df_m0_f_1['Case'].fillna(0)
+pl_df_m0_f_1['Piece'] = pl_df_m0_f_1['Piece'].fillna(0)
+pl_df_m0_f_1['Subcase'] = pl_df_m0_f_1['Subcase'].fillna(0)
+
+pl_m0_final = pl_df_m0_f_1[['product_code', 'product_description', 'Case', 'Subcase', 'Piece']]
+
+ex_filename_pl_m0 = "M0 Pricelist.xlsx"
+full_path_pl_m0 = os.path.join(export_path, ex_filename_pl_m0)
+
+export_pl_m0 = pl_m0_final
+export_pl_m0.to_excel(full_path_pl_m0, index=False)
