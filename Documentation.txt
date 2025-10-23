@@ -46,7 +46,7 @@ dfc2.insert(5,'Total Item amount with Tax and Discount', 0)
 dfc2.insert(8,'with vat', 0)
 dfc2['with vat'] = dfc2['Estimated Product Return Amount'] * 1.12
 
-cust_ret = dfc2.pivot_table(index=['Customer Return Date', 'Sales Rep ID', 'Sales Rep Name', 'Sold To Customer Number', 'Sold To Customer Name', 
+cust_ret = dfc2.pivot_table(index=['Customer Return Date', 'Sold To Customer Number', 'Sold To Customer Name', 
 'Product Code', 'Product Description', 'Total Item amount with Tax and Discount'], columns='Facility Name', values='with vat', aggfunc=sum)
 
 ret_f = cust_ret.reset_index()
@@ -148,3 +148,22 @@ full_path_pl_m0 = os.path.join(export_path, ex_filename_pl_m0)
 
 export_pl_m0 = pl_m0_final
 export_pl_m0.to_excel(full_path_pl_m0, index=False)
+
+#######################################
+
+PARTY_CLASSIFICATION_DESCRIPTION
+KEY_ACCOUNT
+SALES_REP_ID
+SALES_REP_NAME
+BRANCH_NAME
+GEO_LOCATION_HIERARCHYDESCRIPTION
+CITY
+STATE_PROVINCE
+CHANNEL
+
+FS
+
+Week
+
+RD Name
+Category
