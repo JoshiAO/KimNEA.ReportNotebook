@@ -28,6 +28,7 @@ full_path_inv = os.path.join(export_path, ex_filename_inv)
 
 export_inv = inv_f
 export_inv = export_inv.drop(['BO', 'FG'], axis=1)
+export_inv = export_inv.sort_values(by=['Invoice Date', 'Sold To Customer Number'])
 export_inv.to_excel(full_path_inv, index=False)
 
 ##################################################
@@ -85,6 +86,7 @@ ex_filename_net_inv = "Net_Invoiced.xlsx"
 full_path_net_inv = os.path.join(export_path, ex_filename_net_inv)
 
 export_net_inv = net_inv
+export_net_inv = export_net_inv.sort_values(by=['DATE', 'ACCOUNT CODE'])
 export_net_inv.to_excel(full_path_net_inv, index=False)
 
 ##################################################
@@ -111,6 +113,7 @@ ex_filename_so = "Sales_Orders.xlsx"
 full_path_so = os.path.join(export_path, ex_filename_so)
 
 export_so = so_f
+export_so = export_so.sort_values(by=['Last Modified Date', 'Sold To Customer number'])
 export_so.to_excel(full_path_so, index=False)
 
 ##################################################
