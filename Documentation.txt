@@ -1,8 +1,21 @@
 import pandas as pd
 import os
+from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill, Alignment, NamedStyle
+from openpyxl.utils import get_column_letter
+
 export_path = r"C:\Users\User\Downloads\COB DATA\2025\10.October\10.21.25\Export"
 import_path = r"C:\Users\User\Downloads\COB DATA\2025\10.October\10.21.25\COB\Data"
 os.makedirs(export_path, exist_ok=True)
+
+category_df = pd.read_excel(
+    r"C:\Users\User\OneDrive\Kimberlin Enterprises\REPORTS\References\CATEGORY.xlsx")
+
+field_supervisors_df = pd.read_excel(
+    r"C:\Users\User\OneDrive\Kimberlin Enterprises\REPORTS\References\Field Supervisors.xlsx")
+
+week_df = pd.read_excel(
+    r"C:\Users\User\OneDrive\Kimberlin Enterprises\REPORTS\References\WEEK.xlsx")
 
 #INVOICE ON Arrangement
 
@@ -21,15 +34,6 @@ inv_f.insert(6,'BO',0)
 inv_f.insert(7,'FG',0)
 inv_f['Total Item amount with Tax and Discount'] = inv_f['Total Item amount with Tax and Discount'].fillna(0)
 inv_f = inv_f.drop('Invoice Item Type', axis=1)
-
-
-ex_filename_inv = "Invoices.xlsx"
-full_path_inv = os.path.join(export_path, ex_filename_inv)
-
-export_inv = inv_f
-export_inv = export_inv.drop(['BO', 'FG'], axis=1)
-export_inv = export_inv.sort_values(by=['Invoice Date', 'Sold To Customer Number'])
-export_inv.to_excel(full_path_inv, index=False)
 
 ##################################################
 
@@ -56,67 +60,27 @@ ret_f['FG'] = ret_f['FG'].fillna(0)
 
 ##################################################
 
-#COMBINE INVOICED AND RETURNS to NET INVOICED
+#Customer Master List
 
-inv_f.rename(columns={
-'Invoice Date': 'DATE',
-'Sold To Customer Number': 'ACCOUNT CODE',
-'Sold To Customer Name': 'ACCOUNT NAME',
-'Product Code': 'SKU CODE',
-'Product/Item Description': 'SKU NAME',
-'Total Item amount with Tax and Discount': 'SERVED INVOICE',
-'BO': 'BAD RETURNS',
-'FG': 'GOOD RETURNS'
-}, inplace=True)
+im_filename_cust = "DMS-Customer-on.xlsx"
+full_im_path_cust = os.path.join(import_path, im_filename_cust)
 
-ret_f.rename(columns={
-'Customer Return Date': 'DATE',
-'Sold To Customer Number': 'ACCOUNT CODE', 
-'Sold To Customer Name': 'ACCOUNT NAME',
-'Product Code': 'SKU CODE', 
-'Product Description': 'SKU NAME',
-'Total Item amount with Tax and Discount': 'SERVED INVOICE',
-'BO': 'BAD RETURNS',
-'FG': 'GOOD RETURNS'
-}, inplace=True)
+cust_df = pd.read_excel(full_im_path_cust)
 
-net_inv = pd.concat([inv_f, ret_f], axis=0)
+cust_df = cust_df[[
+    'NEXT_UP_NUMBER',
+    'PARTY_CLASSIFICATION_DESCRIPTION',
+    'KEY_ACCOUNT',
+    'SALES_REP_ID',
+    'SALES_REP_NAME',
+    'BRANCH_NAME',
+    'GEO_LOCATION_HIERARCHYDESCRIPTION',
+    'CITY',
+    'STATE_PROVINCE',
+    'CHANNEL'
+]]
 
-ex_filename_net_inv = "Net_Invoiced.xlsx"
-full_path_net_inv = os.path.join(export_path, ex_filename_net_inv)
-
-export_net_inv = net_inv
-export_net_inv = export_net_inv.sort_values(by=['DATE', 'ACCOUNT CODE'])
-export_net_inv.to_excel(full_path_net_inv, index=False)
-
-##################################################
-
-#SALES ORDERS
-
-im_filename_so = "DMS-Sales Order-on.xlsx"
-full_im_path_so = os.path.join(import_path, im_filename_so)
-
-df3 = pd.read_excel(full_im_path_so)
-
-dfc3 = df3[['Last Modified Date', 'Sold To Customer number', 'Sold To Customer Name',
- 'Product Code', 'Product Description', 'Total Product Amount', 'SO status']]
-so_par = dfc3[dfc3['SO status'] == 'Invoiced']
-
-so_par['Total Product Amount'].fillna(0, inplace=True)
-so_par.insert(6,'with vat', 0)
-so_par['with vat'] = so_par['Total Product Amount'] * 1.12
-
-so_f = so_par
-so_f = so_f.drop(['Total Product Amount', 'SO status'], axis=1)
-
-ex_filename_so = "Sales_Orders.xlsx"
-full_path_so = os.path.join(export_path, ex_filename_so)
-
-export_so = so_f
-export_so = export_so.sort_values(by=['Last Modified Date', 'Sold To Customer number'])
-export_so.to_excel(full_path_so, index=False)
-
-##################################################
+#######################################
 
 #Price List M0
 
@@ -154,6 +118,489 @@ export_pl_m0.to_excel(full_path_pl_m0, index=False)
 
 #######################################
 
+#COMBINE INVOICED AND RETURNS to NET INVOICED
+
+inv_f.rename(columns={
+'Invoice Date': 'DATE',
+'Sold To Customer Number': 'ACCOUNT CODE',
+'Sold To Customer Name': 'ACCOUNT NAME',
+'Product Code': 'SKU CODE',
+'Product/Item Description': 'SKU NAME',
+'Total Item amount with Tax and Discount': 'SERVED INVOICE',
+'BO': 'BAD RETURNS',
+'FG': 'GOOD RETURNS'
+}, inplace=True)
+
+ret_f.rename(columns={
+'Customer Return Date': 'DATE',
+'Sold To Customer Number': 'ACCOUNT CODE', 
+'Sold To Customer Name': 'ACCOUNT NAME',
+'Product Code': 'SKU CODE', 
+'Product Description': 'SKU NAME',
+'Total Item amount with Tax and Discount': 'SERVED INVOICE',
+'BO': 'BAD RETURNS',
+'FG': 'GOOD RETURNS'
+}, inplace=True)
+
+net_inv = pd.concat([inv_f, ret_f], axis=0)
+
+ex_filename_net_inv = "Net_Invoiced.xlsx"
+full_path_net_inv = os.path.join(export_path, ex_filename_net_inv)
+
+# Customer Details Arrangements
+
+cml_df = cust_df.rename(columns={
+    'NEXT_UP_NUMBER': 'ACCOUNT CODE'
+})
+
+net_inv_f = net_inv.merge(cml_df, on='ACCOUNT CODE', how='left')
+
+# export_net_inv = net_inv_f
+# export_net_inv = export_net_inv.sort_values(by=['DATE', 'ACCOUNT CODE'])
+# export_net_inv.to_excel(full_path_net_inv, index=False)
+
+category_df = category_df.drop(['SKU NAME'], axis=1)
+net_inv_f_l1 = net_inv_f.merge(category_df,  on='SKU CODE', how='left')
+
+net_inv_f_l2 = net_inv_f_l1.merge(field_supervisors_df, on='SALES_REP_ID', how='left')
+
+net_inv_f_l3 = net_inv_f_l2.merge(week_df, on='DATE', how='inner')
+
+# Get Volume - Price Arrangements
+
+pl_m0_final_reference = pl_m0_final[['product_code', 'Case']]
+
+pl_m0_final_reference = pl_m0_final_reference.rename(columns={
+    'product_code': 'SKU CODE',
+    'Case': 'SKU PRICE REFERENCE'
+})
+
+net_inv_f_l4 = net_inv_f_l3.merge(pl_m0_final_reference, on='SKU CODE', how='left')
+
+net_inv_f_l4.insert(5,'VALUE', 0)
+net_inv_f_l4['VALUE'] = net_inv_f_l4['SERVED INVOICE'] - net_inv_f_l4['BAD RETURNS'] - net_inv_f_l4['GOOD RETURNS']
+
+# ensure numeric and avoid divide-by-zero when computing VOLUME
+net_inv_f_l4['SKU PRICE REFERENCE'] = pd.to_numeric(net_inv_f_l4['SKU PRICE REFERENCE'], errors='coerce').fillna(0)
+net_inv_f_l4['VOLUME'] = 0
+mask = net_inv_f_l4['SKU PRICE REFERENCE'] != 0
+net_inv_f_l4.loc[mask, 'VOLUME'] = net_inv_f_l4.loc[mask, 'VALUE'] / net_inv_f_l4.loc[mask, 'SKU PRICE REFERENCE']
+
+# Post-Net Invoiced
+
+export_net_inv = net_inv_f_l4
+export_net_inv['RD NAME'] = 'Kimberlin'
+
+export_net_inv = export_net_inv.sort_values(by=['DATE', 'ACCOUNT CODE'])
+
+export_net_inv.rename(columns={
+    'RD NAME': 'RD Name',
+    'DATE': 'Date',
+    'WEEK': 'Week',
+    'BRANCH_NAME': 'Branch Name',
+    'SALES_REP_ID': 'Employee Code',
+    'SALES_REP_NAME': 'Employee Name',
+    'KEY_ACCOUNT': 'Channel',
+    'ACCOUNT CODE': 'Sold To Customer number',
+    'ACCOUNT NAME': 'Sold To Customer Name',
+    'CATEGORY': 'Category',
+    'SKU CODE': 'Product Code',
+    'SKU NAME': 'Product Description',
+    'VOLUME': 'Volume',
+    'VALUE': 'Net Value',
+    'GOOD RETURNS': 'Good Stock Returns',
+    'BAD RETURNS': 'Bad Stock Returns',
+    'PARTY_CLASSIFICATION_DESCRIPTION': 'Channel_Classification',
+    'GEO_LOCATION_HIERARCHYDESCRIPTION': 'Brgy',
+    'CITY': 'Town',
+    'STATE_PROVINCE': 'Province',
+    'FS': 'FS',
+    'CHANNEL': 'RTM Model'
+}, inplace=True)
+
+export_net_inv_final = export_net_inv[[
+    'RD Name',
+    'Date',
+    'Week',
+    'Branch Name',
+    'Employee Code',
+    'Employee Name',
+    'Channel',
+    'Sold To Customer number',
+    'Sold To Customer Name',
+    'Category',
+    'Product Code',
+    'Product Description',
+    'Volume',
+    'Net Value',
+    'Good Stock Returns',
+    'Bad Stock Returns',
+    'Channel_Classification',
+    'Brgy',
+    'Town',
+    'Province',
+    'FS',
+    'RTM Model',
+]]
+
+# Net Invoiced Finalization
+
+# Step 1: Export to Excel with a blank row at the top
+
+temp_output = 'temp_file_output.xlsx'
+temp_file = os.path.join(import_path, temp_output)
+
+with pd.ExcelWriter(temp_file, engine='openpyxl') as writer:
+    # Write to row 2 (startrow=1) to leave row 1 blank
+    export_net_inv_final.to_excel(writer, index=False, startrow=1)
+
+# Step 2: Load workbook and apply formatting
+wb = load_workbook(temp_file)
+ws = wb.active
+
+# Step 3: Style header (row 2)
+header_fill = PatternFill(start_color='000000', end_color='000000', fill_type='solid')
+header_font = Font(bold=True, color='FFFFFF')
+header_alignment = Alignment(horizontal='center')
+
+for cell in ws[2]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.alignment = header_alignment
+
+# Step 4: Format numeric columns with comma style
+accounting_style = NamedStyle(name="accounting_style", number_format='_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)')
+for col in range(13, 17):  # Assuming numeric columns start from column 2
+    for row in range(3, ws.max_row + 1):  # Data starts from row 3
+        cell = ws.cell(row=row, column=col)
+        if isinstance(cell.value, (int, float)):
+            cell.style = accounting_style
+
+sum_row = ws.max_row + 1
+start_range = 3
+end_range = ws.max_row
+
+for col in range(13, 17):
+    col_letter = get_column_letter(col)
+    sum_cell = ws.cell(row=sum_row, column=col)
+    sum_cell.value = f"=SUM({col_letter}{start_range}:{col_letter}{end_range})"
+    sum_cell.font = Font(bold=True, color="FF0000")
+    sum_cell.number_format = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)'
+
+# List the column letters or indexes you want to auto-fit
+columns_to_adjust = ['M', 'N', 'O', 'P']  # or use [2, 4] for indexes
+
+for col_id in columns_to_adjust:
+    # Convert index to letter if needed
+    col_letter = get_column_letter(col_id) if isinstance(col_id, int) else col_id
+    max_length = 0
+
+    for cell in ws[col_letter]:
+        if cell.value:
+            max_length = max(max_length, len(str(cell.value)))
+
+    ws.column_dimensions[col_letter].width = max_length + 2  # Add padding
+
+
+# Save changes
+Net_Invoiced = "Net_Invoiced.xlsx"
+Net_Invoiced_path = os.path.join(export_path, Net_Invoiced)
+
+ws.sheet_view.showGridLines = False
+wb.save(Net_Invoiced_path)
+
+##################################################
+
+# SERVED INVOICE Arrangements
+
+ser_inv = inv_f
+ser_inv_df = ser_inv.drop(['BAD RETURNS', 'GOOD RETURNS'], axis=1)
+
+cml_df = cust_df.rename(columns={
+    'NEXT_UP_NUMBER': 'ACCOUNT CODE'
+})
+
+ser_inv_df1 = ser_inv_df.merge(cml_df, on='ACCOUNT CODE', how='left')
+
+ser_inv_f_l1 = ser_inv_df1.merge(category_df,  on='SKU CODE', how='left')
+
+ser_inv_f_l2 = ser_inv_f_l1.merge(field_supervisors_df, on='SALES_REP_ID', how='left')
+
+ser_inv_f_l3 = ser_inv_f_l2.merge(week_df, on='DATE', how='inner')
+
+ser_inv_f_l4 = ser_inv_f_l3.merge(pl_m0_final_reference, on='SKU CODE', how='left')
+
+ser_inv_f_l4['SKU PRICE REFERENCE'] = pd.to_numeric(ser_inv_f_l4['SKU PRICE REFERENCE'], errors='coerce').fillna(0)
+ser_inv_f_l4['VOLUME'] = 0
+mask = ser_inv_f_l4['SKU PRICE REFERENCE'] != 0
+ser_inv_f_l4.loc[mask, 'VOLUME'] = ser_inv_f_l4.loc[mask, 'SERVED INVOICE'] / ser_inv_f_l4.loc[mask, 'SKU PRICE REFERENCE']
+
+ser_inv_f_l4['RD NAME'] = 'Kimberlin'
+
+
+export_ser_inv = ser_inv_f_l4
+
+export_ser_inv.rename(columns={
+    'RD NAME': 'RD Name',
+    'DATE': 'Invoice Date',
+    'WEEK': 'Week',
+    'BRANCH_NAME': 'Branch Name',
+    'SALES_REP_ID': 'Employee Code',
+    'SALES_REP_NAME': 'Employee Name',
+    'KEY_ACCOUNT': 'Channel',
+    'ACCOUNT CODE': 'Sold To Customer Number',
+    'ACCOUNT NAME': 'Sold To Customer Name',
+    'CATEGORY': 'Category',
+    'SKU CODE': 'Product Code',
+    'SKU NAME': 'Product Description',
+    'VOLUME': 'Volume',
+    'SERVED INVOICE': 'Value',
+    'PARTY_CLASSIFICATION_DESCRIPTION': 'Channel Type'
+}, inplace=True)
+
+export_ser_inv_final = export_ser_inv[[
+    'RD Name',
+    'Invoice Date',
+    'Week',
+    'Branch Name',
+    'Employee Code',
+    'Employee Name',
+    'Channel',
+    'Sold To Customer Number',
+    'Sold To Customer Name',
+    'Category',
+    'Product Code',
+    'Product Description',
+    'Volume',
+    'Value',
+    'FS',
+    'Channel Type'
+]]
+
+ser_inv_df_export = export_ser_inv_final
+ser_inv_df_export_final = ser_inv_df_export.sort_values(by=['Invoice Date', 'Sold To Customer Number'])
+
+# SERVED INVOICE Finalization
+
+# Step 1: Export to Excel with a blank row at the top
+temp_output = 'temp_file_output.xlsx'
+temp_file = os.path.join(import_path, temp_output)
+
+with pd.ExcelWriter(temp_file, engine='openpyxl') as writer:
+    # Write to row 2 (startrow=1) to leave row 1 blank
+    ser_inv_df_export_final.to_excel(writer, index=False, startrow=1)
+
+# Step 2: Load workbook and apply formatting
+wb = load_workbook(temp_file)
+ws = wb.active
+
+# Step 3: Style header (row 2)
+header_fill = PatternFill(start_color='000000', end_color='000000', fill_type='solid')
+header_font = Font(bold=True, color='FFFFFF')
+header_alignment = Alignment(horizontal='center')
+
+for cell in ws[2]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.alignment = header_alignment
+
+# Step 4: Format numeric columns with comma style
+accounting_style = NamedStyle(name="accounting_style", number_format='_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)')
+for col in range(13, 15):  # Assuming numeric columns start from column 2
+    for row in range(3, ws.max_row + 1):  # Data starts from row 3
+        cell = ws.cell(row=row, column=col)
+        if isinstance(cell.value, (int, float)):
+            cell.style = accounting_style
+
+sum_row = ws.max_row + 1
+start_range = 3
+end_range = ws.max_row
+
+for col in range(13, 15):
+    col_letter = get_column_letter(col)
+    sum_cell = ws.cell(row=sum_row, column=col)
+    sum_cell.value = f"=SUM({col_letter}{start_range}:{col_letter}{end_range})"
+    sum_cell.font = Font(bold=True, color="FF0000")
+    sum_cell.number_format = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)'
+
+# List the column letters or indexes you want to auto-fit
+columns_to_adjust = ['M', 'N']  # or use [2, 4] for indexes
+
+for col_id in columns_to_adjust:
+    # Convert index to letter if needed
+    col_letter = get_column_letter(col_id) if isinstance(col_id, int) else col_id
+    max_length = 0
+
+    for cell in ws[col_letter]:
+        if cell.value:
+            max_length = max(max_length, len(str(cell.value)))
+
+    ws.column_dimensions[col_letter].width = max_length + 2  # Add padding
+
+# Save changes
+ex_filename_ser_inv = "Served Invoice.xlsx"
+full_path_ser_inv = os.path.join(export_path, ex_filename_ser_inv)
+
+ws.sheet_view.showGridLines = False
+wb.save(full_path_ser_inv)
+
+##################################################
+
+# SALES ORDERS Arrangements
+
+im_filename_so = "DMS-Sales Order-on.xlsx"
+full_im_path_so = os.path.join(import_path, im_filename_so)
+
+df3 = pd.read_excel(full_im_path_so)
+
+dfc3 = df3[['Last Modified Date', 'Sold To Customer number', 'Sold To Customer Name',
+ 'Product Code', 'Product Description', 'Total Product Amount', 'SO status']]
+so_par = dfc3[dfc3['SO status'] == 'Invoiced']
+
+so_par['Total Product Amount'].fillna(0, inplace=True)
+so_par.insert(6,'with vat', 0)
+so_par['with vat'] = so_par['Total Product Amount'] * 1.12
+
+so_f = so_par
+so_f = so_f.drop(['Total Product Amount', 'SO status'], axis=1)
+
+cml_df = cust_df.rename(columns={
+    'NEXT_UP_NUMBER': 'Sold To Customer number'
+})
+cat_df = category_df.rename(columns={
+    'SKU CODE': 'Product Code'
+})
+wk_df = week_df.rename(columns={
+    'DATE': 'Last Modified Date'
+})
+pl_df = pl_m0_final_reference.rename(columns={
+    'SKU CODE': 'Product Code'
+})
+
+sales_orders_df1 = so_f.merge(cml_df, on='Sold To Customer number', how='left')
+
+sales_orders_df2 = sales_orders_df1.merge(cat_df,  on='Product Code', how='left')
+
+sales_orders_df3 = sales_orders_df2.merge(field_supervisors_df, on='SALES_REP_ID', how='left')
+
+sales_orders_df4 = sales_orders_df3.merge(wk_df, on='Last Modified Date', how='inner')
+
+sales_orders_df5 = sales_orders_df4.merge(pl_df, on='Product Code', how='left')
+
+sales_orders_df5['SKU PRICE REFERENCE'] = pd.to_numeric(sales_orders_df5['SKU PRICE REFERENCE'], errors='coerce').fillna(0)
+sales_orders_df5['VOLUME'] = 0
+mask = sales_orders_df5['SKU PRICE REFERENCE'] != 0
+sales_orders_df5.loc[mask, 'VOLUME'] = sales_orders_df5.loc[mask, 'with vat'] / sales_orders_df5.loc[mask, 'SKU PRICE REFERENCE']
+
+sales_orders_df5['RD NAME'] = 'Kimberlin'
+
+export_sales_order = sales_orders_df5
+
+export_sales_order.rename(columns={
+    'RD NAME': 'RD Name',
+    'Last Modified Date': 'SO Date',
+    'WEEK': 'Week',
+    'BRANCH_NAME': 'Branch Name',
+    'SALES_REP_ID': 'Employee Code',
+    'SALES_REP_NAME': 'Employee Name',
+    'KEY_ACCOUNT': 'Channel',
+    'Sold To Customer number': 'Sold To Customer Number',
+    'CATEGORY': 'Category',
+    'VOLUME': 'Volume',
+    'with vat': 'Value',
+    'PARTY_CLASSIFICATION_DESCRIPTION': 'Channel Type'
+}, inplace=True)
+
+export_sales_order_final = export_sales_order[[
+    'RD Name',
+    'SO Date',
+    'Week',
+    'Branch Name',
+    'Employee Code',
+    'Employee Name',
+    'Channel',
+    'Sold To Customer Number',
+    'Sold To Customer Name',
+    'Category',
+    'Product Code',
+    'Product Description',
+    'Volume',
+    'Value',
+    'FS',
+    'Channel Type'
+]]
+
+so_df_export = export_sales_order_final
+so_df_export_final = so_df_export.sort_values(by=['SO Date', 'Sold To Customer Number'])
+
+# SERVED INVOICE Finalization
+
+# Step 1: Export to Excel with a blank row at the top
+temp_output = 'temp_file_output.xlsx'
+temp_file = os.path.join(import_path, temp_output)
+
+with pd.ExcelWriter(temp_file, engine='openpyxl') as writer:
+    # Write to row 2 (startrow=1) to leave row 1 blank
+    so_df_export_final.to_excel(writer, index=False, startrow=1)
+
+# Step 2: Load workbook and apply formatting
+wb = load_workbook(temp_file)
+ws = wb.active
+
+# Step 3: Style header (row 2)
+header_fill = PatternFill(start_color='000000', end_color='000000', fill_type='solid')
+header_font = Font(bold=True, color='FFFFFF')
+header_alignment = Alignment(horizontal='center')
+
+for cell in ws[2]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.alignment = header_alignment
+
+# Step 4: Format numeric columns with comma style
+accounting_style = NamedStyle(name="accounting_style", number_format='_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)')
+for col in range(13, 15):  # Assuming numeric columns start from column 2
+    for row in range(3, ws.max_row + 1):  # Data starts from row 3
+        cell = ws.cell(row=row, column=col)
+        if isinstance(cell.value, (int, float)):
+            cell.style = accounting_style
+
+sum_row = ws.max_row + 1
+start_range = 3
+end_range = ws.max_row
+
+for col in range(13, 15):
+    col_letter = get_column_letter(col)
+    sum_cell = ws.cell(row=sum_row, column=col)
+    sum_cell.value = f"=SUM({col_letter}{start_range}:{col_letter}{end_range})"
+    sum_cell.font = Font(bold=True, color="FF0000")
+    sum_cell.number_format = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)'
+
+# List the column letters or indexes you want to auto-fit
+columns_to_adjust = ['M', 'N']  # or use [2, 4] for indexes
+
+for col_id in columns_to_adjust:
+    # Convert index to letter if needed
+    col_letter = get_column_letter(col_id) if isinstance(col_id, int) else col_id
+    max_length = 0
+
+    for cell in ws[col_letter]:
+        if cell.value:
+            max_length = max(max_length, len(str(cell.value)))
+
+    ws.column_dimensions[col_letter].width = max_length + 2  # Add padding
+
+# Save changes
+ex_filename_so = "Sales_Orders.xlsx"
+full_path_so = os.path.join(export_path, ex_filename_so)
+
+ws.sheet_view.showGridLines = False
+wb.save(full_path_so)
+
+##################################################
+
+
+NEXT_UP_NUMBER
 PARTY_CLASSIFICATION_DESCRIPTION
 KEY_ACCOUNT
 SALES_REP_ID
